@@ -1,0 +1,109 @@
+openapi: 3.0.3
+info:
+  title: TaskFlow API
+  version: 1.0.0
+  description: A user-owned task manager backend. All task endpoints require a bearer token.
+servers:
+  - url: http://localhost:4000
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    TaskInput:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, nullable: true }
+        priority: { type: string, enum: [LOW, MEDIUM, HIGH] }
+        status: { type: string, enum: [TODO, IN_PROGRESS, DONE] }
+        dueAt: { type: string, format: date-time, nullable: true }
+paths:
+  /api/health:
+    get:
+      summary: Service health
+      responses:
+        '200': { description: Healthy }
+  /api/auth/register:
+    post:
+      summary: Register a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+      responses:
+        '201': { description: Created user and JWT }
+        '409': { description: Email already registered }
+  /api/auth/login:
+    post:
+      summary: Login to receive JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200': { description: User and JWT }
+        '401': { description: Invalid credentials }
+  /api/tasks:
+    get:
+      summary: List your tasks (filters status, priority, page, limit)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { in: query, name: status, schema: { type: string, enum: [TODO, IN_PROGRESS, DONE] } }
+        - { in: query, name: priority, schema: { type: string, enum: [LOW, MEDIUM, HIGH] } }
+        - { in: query, name: page, schema: { type: integer, minimum: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 50 } }
+      responses:
+        '200': { description: Paginated task list }
+    post:
+      summary: Create task
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskInput' }
+      responses:
+        '201': { description: Task created }
+  /api/tasks/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string } }
+    get:
+      summary: Get a task you own
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200': { description: Task }
+        '404': { description: Not found }
+    patch:
+      summary: Update a task you own
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskInput' }
+      responses:
+        '200': { description: Updated task }
+        '404': { description: Not found }
+    delete:
+      summary: Delete a task you own
+      security: [{ BearerAuth: [] }]
+      responses:
+        '204': { description: Deleted }
+        '404': { description: Not found }
